@@ -1,0 +1,15 @@
+#!/bin/bash -e
+
+#if [ `systemctl is-enabled st-m33firmware-load` = "enabled" ]; then
+#	systemctl stop st-m33firmware-load.service
+#	systemctl disable st-m33firmware-load.service
+#fi
+
+## Init Audio
+/usr/bin/hpdet
+
+# Close WiFi log
+echo 0 > /proc/net/rtl8821cs/log_level
+
+# Init Bluetooth
+/usr/bin/btinit &

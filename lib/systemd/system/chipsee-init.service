@@ -1,0 +1,14 @@
+[Unit]
+Description=Init Chipsee devices
+DefaultDependencies=no
+After=local-fs.target
+
+[Service]
+Type=forking
+ExecStart=/opt/hardware/init/chipsee_init start
+ExecStop=/opt/hardware/init/chipsee_init stop
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=sysinit.target

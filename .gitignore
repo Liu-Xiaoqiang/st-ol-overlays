@@ -1,0 +1,7 @@
+/oe-logs
+/oe-workdir
+*.o
+hpdet
+send
+receive
+receive_show
