@@ -11,5 +11,8 @@ fi
 # Init Bluetooth
 /usr/bin/btinit &
 
-# Init LTE 4G
-/usr/bin/ltereset
+# LTE 4G Reset IO[PB15]
+#gpioset -z PB15=0
+#killall gpioset
+#sleep 1
+#gpioset -z PB15=1
