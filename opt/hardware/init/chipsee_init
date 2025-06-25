@@ -1,8 +1,32 @@
 #!/bin/bash -e
 
+set -x
+LOGF=/var/log/$(basename $0).log
+exec 1> >(tee $LOGF)
+exec 2>&1
+
+echo "Chipsee Init beggin"
+COMPATIBLE=$(cat /proc/device-tree/compatible)
+if [[ $COMPATIBLE =~ "stm32mp257f-eisd-1024600" ]]; then
+    BOARDNAME="CS10600-STMP25-070"
+elif [[ $COMPATIBLE =~ "stm32mp257f-eisd-1280720" ]]; then
+    BOARDNAME="CS12720-STMP25-050"
+else
+    BOARDNAME="CS12800-STMP25-101"
+fi
+
+# backlight
+if [[ "$BOARDNAME" == "CS12800-STMP25-101" ]]; then
+    ln -sf /sys/class/backlight/panel-lvds-backlight/max_brightness /dev/max_brightness
+    ln -sf /sys/class/backlight/panel-lvds-backlight/brightness /dev/brightness
+else
+    ln -sf /sys/class/backlight/panel-dsi-backlight/max_brightness /dev/max_brightness
+    ln -sf /sys/class/backlight/panel-dsi-backlight/brightness /dev/brightness
+fi
+
 if [ `systemctl is-enabled st-m33firmware-load` = "enabled" ]; then
-	systemctl stop st-m33firmware-load.service
-	systemctl disable st-m33firmware-load.service
+    systemctl stop st-m33firmware-load.service
+    systemctl disable st-m33firmware-load.service
 fi
 
 ## Init Audio
@@ -16,3 +40,4 @@ fi
 #killall gpioset
 #sleep 1
 #gpioset -z PB15=1
+echo "Chipsee Init end"
