@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <string.h>
 #include <syslog.h>
+#include <pwd.h>
+#include <grp.h>
 
 #define CONSUMER "Consumer"
 #define INPUT_PIN 3  // 输入 IO 引脚编号
@@ -212,6 +214,47 @@ static int codecinit(void)
     return 0;
 }
 
+void check_and_fix_ownership(const char *path, const char *target_user, const char *target_group) {
+
+    struct stat file_stat;
+    if (stat(path, &file_stat) != 0) {
+        syslog(LOG_ERR, "Failed to get file status for %s: %s", path, strerror(errno));
+        closelog();
+        return;
+    }
+
+    struct passwd *user = getpwuid(file_stat.st_uid);
+    struct group  *group = getgrgid(file_stat.st_gid);
+
+    if (!user || !group) {
+        syslog(LOG_ERR, "Failed to retrieve user or group info for %s", path);
+        closelog();
+        return;
+    }
+
+    //syslog(LOG_INFO, "Current owner of %s: %s", path, user->pw_name);
+    //syslog(LOG_INFO, "Current group of %s: %s", path, group->gr_name);
+
+    if (strcmp(user->pw_name, target_user) != 0 || strcmp(group->gr_name, target_group) != 0) {
+        struct passwd *target_pw = getpwnam(target_user);
+        struct group  *target_gr = getgrnam(target_group);
+
+        if (!target_pw || !target_gr) {
+            syslog(LOG_ERR, "Target user or group %s not found", target_user);
+            closelog();
+            return;
+        }
+
+        if (chown(path, target_pw->pw_uid, target_gr->gr_gid) != 0) {
+            syslog(LOG_ERR, "Failed to change owner/group of %s: %s", path, strerror(errno));
+            closelog();
+            return;
+        }
+
+        syslog(LOG_INFO, "Changed owner/group of %s to %s", path, target_user);
+    }
+}
+
 int main(void) {
     openlog("hpdet", LOG_PID | LOG_CONS, LOG_DAEMON);
     syslog(LOG_INFO, "hpdet Starting");
@@ -221,7 +264,11 @@ int main(void) {
 
     codecinit();
     syslog(LOG_INFO, "Codec Inited");
-    
+
+    const char *path = "/run/user/1000/pulse";
+    const char *target_user = "weston";
+    const char *target_group = "weston";
+
     static const char *const chip_path = "/dev/gpiochip10";
     static const unsigned int hp_line_offset = INPUT_PIN;
     static const unsigned int spk_line_offset = OUTPUT_PIN;
@@ -257,9 +304,13 @@ int main(void) {
     while(1) {
     	switch(value) {
     	    case GPIOD_LINE_VALUE_INACTIVE:
+		// confirm the pulse permission is ok
+		check_and_fix_ownership(path, target_user, target_group);
     	    	ret = system("su -l weston -c 'source /etc/profile.d/pulse_profile.sh; pactl set-sink-port @DEFAULT_SINK@ analog-output-speaker' ");
     	    	break;
     	    case GPIOD_LINE_VALUE_ACTIVE:
+		// confirm the pulse permission is ok
+		check_and_fix_ownership(path, target_user, target_group);
     	    	ret = system("su -l weston -c 'source /etc/profile.d/pulse_profile.sh; pactl set-sink-port @DEFAULT_SINK@ analog-output-headphones' ");
     	    	break;
     	    default:
@@ -305,11 +356,15 @@ int main(void) {
         		case GPIOD_EDGE_EVENT_RISING_EDGE:
             			syslog(LOG_INFO, "HP Inserted, Inactive SPK\n");
 				gpiod_line_request_set_value(out_request, spk_line_offset, GPIOD_LINE_VALUE_INACTIVE);
+				// confirm the pulse permission is ok
+				check_and_fix_ownership(path, target_user, target_group);
 				system("su -l weston -c 'source /etc/profile.d/pulse_profile.sh; pactl set-sink-port @DEFAULT_SINK@ analog-output-headphones' ");
 				break;
         		case GPIOD_EDGE_EVENT_FALLING_EDGE:
             			syslog(LOG_INFO, "HP Un-inserted, Active SPK\n");
 				gpiod_line_request_set_value(out_request, spk_line_offset, GPIOD_LINE_VALUE_ACTIVE);
+				// confirm the pulse permission is ok
+				check_and_fix_ownership(path, target_user, target_group);
 				system("su -l weston -c 'source /etc/profile.d/pulse_profile.sh; pactl set-sink-port @DEFAULT_SINK@ analog-output-speaker' ");
 				break;
         		default:
