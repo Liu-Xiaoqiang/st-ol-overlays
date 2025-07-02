@@ -6,6 +6,10 @@ exec 1> >(tee $LOGF)
 exec 2>&1
 
 echo "Chipsee Init beggin"
+if [ -f /lib/udev/rules.d/80-net-setup-link.rules ]; then
+	ln -sf /dev/null /lib/udev/rules.d/80-net-setup-link.rules
+fi
+
 COMPATIBLE=$(cat /proc/device-tree/compatible)
 if [[ $COMPATIBLE =~ "stm32mp257f-eisd-1024600" ]]; then
     BOARDNAME="CS10600-STMP25-070"
@@ -19,9 +23,19 @@ fi
 if [[ "$BOARDNAME" == "CS12800-STMP25-101" ]]; then
     ln -sf /sys/class/backlight/panel-lvds-backlight/max_brightness /dev/max_brightness
     ln -sf /sys/class/backlight/panel-lvds-backlight/brightness /dev/brightness
+    # LTE 4G Reset IO[PB15]
+    gpioset -z PB15=0
+    killall gpioset
+    sleep 1
+    gpioset -z PB15=1
 else
     ln -sf /sys/class/backlight/panel-dsi-backlight/max_brightness /dev/max_brightness
     ln -sf /sys/class/backlight/panel-dsi-backlight/brightness /dev/brightness
+    # LTE 4G Reset IO[PJ8]
+    gpioset -z PJ8=0
+    killall gpioset
+    sleep 1
+    gpioset -z PJ8=1
 fi
 
 if [ `systemctl is-enabled st-m33firmware-load` = "enabled" ]; then
@@ -35,9 +49,4 @@ fi
 # Init Bluetooth
 /usr/bin/btinit &
 
-# LTE 4G Reset IO[PB15]
-#gpioset -z PB15=0
-#killall gpioset
-#sleep 1
-#gpioset -z PB15=1
 echo "Chipsee Init end"
