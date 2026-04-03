@@ -19,6 +19,17 @@ else
     BOARDNAME="CS12800-STMP25-101"
 fi
 
+## Init Audio
+/usr/bin/hpdet
+
+# Init Bluetooth
+/usr/bin/btinit &
+
+if [ `systemctl is-enabled st-m33firmware-load` = "enabled" ]; then
+    systemctl stop st-m33firmware-load.service
+    systemctl disable st-m33firmware-load.service
+fi
+
 # backlight
 if [[ "$BOARDNAME" == "CS12800-STMP25-101" ]]; then
     ln -sf /sys/class/backlight/panel-lvds-backlight/max_brightness /dev/max_brightness
@@ -37,16 +48,5 @@ else
     sleep 1
     gpioset -z PJ8=1
 fi
-
-if [ `systemctl is-enabled st-m33firmware-load` = "enabled" ]; then
-    systemctl stop st-m33firmware-load.service
-    systemctl disable st-m33firmware-load.service
-fi
-
-## Init Audio
-/usr/bin/hpdet
-
-# Init Bluetooth
-/usr/bin/btinit &
 
 echo "Chipsee Init end"
