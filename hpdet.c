@@ -257,6 +257,9 @@ void check_and_fix_ownership(const char *path, const char *target_user, const ch
 
 int main(void) {
     openlog("hpdet", LOG_PID | LOG_CONS, LOG_DAEMON);
+    // 查看日志方式:
+    // 传统syslog: /var/log/syslog 或 /var/log/messages
+    // systemd系统: journalctl -f | grep hpdet
     syslog(LOG_INFO, "hpdet Starting");
 
     // 守护进程化
@@ -298,6 +301,18 @@ int main(void) {
     	fprintf(stderr, "failed to request line: %s\n",
     		strerror(errno));
     	return EXIT_FAILURE;
+    }
+
+    // 等待pulse目录就绪
+    syslog(LOG_INFO, "Waiting for %s to be ready", path);
+    while (1) {
+        struct stat dir_stat;
+        if (stat(path, &dir_stat) == 0 && S_ISDIR(dir_stat.st_mode)) {
+            syslog(LOG_INFO, "%s is ready", path);
+            break;
+        }
+        syslog(LOG_INFO, "%s not ready yet, waiting...", path);
+        sleep(1);
     }
 
     // 等待pactl正常运行
